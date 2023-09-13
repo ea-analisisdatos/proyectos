@@ -1,0 +1,11 @@
+pip
+jupyter
+numpy
+pandas
+matplotlib
+seaborn
+missingno
+scipy
+mysql-connector-python
+sqlalchemy
+ydata-profiling
