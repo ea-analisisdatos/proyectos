@@ -1,0 +1,529 @@
+Preliminares
+A partir de los microdatos de defunciones de 2019 y los datos de población publicados por el Instituto Nacional de Estadística de España, vamos a obtener la tabla con las tasas de fallecimiento PM (edad,sexo) y la distribución de probabilidad de vivir hasta cada edad al nacer PV(edad,sexo). Para ello, se tiene en cuenta que vivir hasta la edad es equivalente a sobrevivir a las edades i=0,..,n−1
+ y morir a la edad n. Por tanto:
+PV(edad,sexo)=PM(edad,sexo).∏i=0edad−1(1−PM(i,sexo))
+A partir de la distribución PV(edad,sexo), calcularemos la esperanza de vida al nacer, EVN(sexo), como:
+EVN(sexo)=∑i=0max(edad)edadi.PV(i,sexo)
+De forma análoga, si lo que deseamos es obtener la esperanza de vida a una determinada edad,EV(edad,sexo) por ejemplo a los 65 años, EV (65,sexo):
+EV(edad,sexo)=∑i=edadmax(edad)(i−edad).PV(i,sexo)PV(edad,sexo)
+Observar que PV(i,sexo)PV(edad,sexo
+ para i>=edad
+ es la probabilidad de vivir i años cuando condicionada a haber vivido edad de años.
+
+Establecimiento del entorno
+En primer lugar establecemos el entorno de ejecución para el cálculo, con los ficheros con los datos de defunciones de 2019 y los datos de población a 1 de enero de 2020, fecha de cierre del periodo considerado.
+
+# This Python 3 environment comes with many helpful analytics libraries installed
+# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python
+# For example, here's several helpful packages to load
+
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+
+# Input data files are available in the read-only "../input/" directory
+# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
+
+import os
+for dirname, _, filenames in os.walk('/kaggle/input'):
+    for filename in filenames:
+        print(os.path.join(dirname, filename))
+
+# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using "Save & Run All" 
+# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session
+/kaggle/input/censo-poblacion-espaa-a-1-de-enero-2020/PoblacionEnero2020SexoEdad.csv
+/kaggle/input/defuncionesine/DEFUNsincm.ANONIMI.A2018.ESTPR.txt
+/kaggle/input/defuncionesine/DEFUN.ANONIMIsin causa.A2019.txt
+A continuación cargamos los microdatos de defunciones de 2019 y agrupamos por edad y sexo .
+Fallecidos2019(edad,sexo)
+#Cargamos los microdatos de defunciones que están en formato texto con campos de longitud fija
+#Establecemos la anchura de cada campo y los nombres y leemos el fichero
+anchos=[2, 3, 2, 4, 1, 2, 4, 1, 3, 1, 2, 3, 3, 1, 2, 3, 3, 1, 2, 3, 2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 16]
+encabezado=['CPROI' ,'CMUNI' ,'MESN' ,'ANON' ,'SEXO' ,'MESDEF' ,'ANODEF' ,'NACIONALIDAD' ,'PAISNAC' ,'LUGNAC' ,'CPRON' ,'CMUNN' ,'PAISNX' ,'LUGRES' ,'CPRORE' ,'CMUNRE' ,'PAISREX' ,'ECIV' ,'CAUTO' ,'AÑOSC' ,'MESESC' ,'DIASC' ,'TAMAMUNI' ,'TAMAMUNINAC' ,'TAMAMUNIRES' ,'TAMAPAIS NACIMI' ,'TAMAPAIS RESIDE' ,'TAMAPAIS NACIONA' ,'CBAS1' ,'CBAS23' ,'CBAS4' ,'CAUSAR' ,'CAUSAP' ,'CAUSAINF' ,'NESTUDIOS' ,'LUGARDEF' ,'RELA' ,'BLANCO']
+Defunciones2019=pd.read_fwf('/kaggle/input/defuncionesine/DEFUN.ANONIMIsin causa.A2019.txt',widths=anchos)
+Defunciones2019.columns=encabezado
+#Ahora calculamos la Edad
+def EdadM(r):
+    return int(r.ANODEF-r.ANON)
+Defunciones2019.insert(loc=0,value=Defunciones2019.apply(EdadM, axis='columns'),column='EDAD')
+
+#Decodificamos el SEXO
+def DecodificaSexo(x):
+    if x == 1:
+        return 'Hombres'
+    if x== 6:
+        return 'Mujeres'
+
+SexoT=Defunciones2019.SEXO.map(DecodificaSexo)
+Defunciones2019.SEXO=SexoT
+# Vamos a agrupar por SEXO y EDAD, para obtener la cuenta de fallecidos por año de nacimiento y sexo. 
+# Al dividir por la pboblación, nos dará la frecuencia (probabilidad) de fallecimiento para los nacieos ese año y sexo.
+# Hay que contar por algún campo , elegimos MESN ya que debe figurar para todos los registros
+Fallecidos2019=Defunciones2019.groupby(['EDAD', 'SEXO'])['MESN'].count()
+print("Se ha creado la tabla Fallecidos2019(EDAD,SEXO)")
+print("Ejemplo Fallecidos2019[45,'Mujeres'] =" ,Fallecidos2019[45,'Mujeres'])
+Se ha creado la tabla Fallecidos2019(EDAD,SEXO)
+Ejemplo Fallecidos2019[45,'Mujeres'] = 331
+Ahora cargamos los datos de población
+
+#Los datos de población los vamos a obtener del INE a fecha de 1 de enero de 2020 https://www.ine.es/jaxiT3/Tabla.htm?t=31304
+#Es discutiblde si es correcto tomar los datos a fecha de 1 d enero de 2020 o debe ser a 1 de enero de 2019
+#Los datos se han depudardo con NotePad++ para pasar a utf8. 100 años, se refiere a 100 o más años. 
+Poblacion2019Original=pd.read_csv('/kaggle/input/censo-poblacion-espaa-a-1-de-enero-2020/PoblacionEnero2020SexoEdad.csv', sep=';')
+#Quitamos las columnas que no utilizamos.
+Poblacion2019Original.pop('Provincias')
+Poblacion2019Original.pop('Periodo')
+#Insertamos una columna Fallecidos inicializada a 0, luego la cargamos con los datos de Fallecidos2019
+Poblacion2019Original.insert(loc=0,value=Poblacion2019Original.Edad.map(lambda x: 0), column='FALLECIDOS')
+Poblacion2019=Poblacion2019Original.set_index(['Edad', 'Sexo'],)
+#cargamos los datos de fallecidos
+for x in range (0,100,1):
+    Poblacion2019.loc[x,'Hombres'].FALLECIDOS=Fallecidos2019.loc[x,'Hombres']
+    Poblacion2019.loc[x,'Mujeres'].FALLECIDOS=Fallecidos2019.loc[x,'Mujeres']
+# Ahora ponemos los datos de fallecios de 100 o más años
+Poblacion2019.loc[100,'Hombres'].FALLECIDOS=Fallecidos2019.loc[100:200,'Hombres'].sum()
+Poblacion2019.loc[100,'Mujeres'].FALLECIDOS=Fallecidos2019.loc[100:200,'Mujeres'].sum()
+
+# Ahora cargamos las tasas de fallecimoento para cada sexo y edad
+def ProbM(r):
+    return r.FALLECIDOS /r.Total
+
+Poblacion2019.insert(loc=0,value=Poblacion2019.apply(ProbM,axis='columns'), column='PM')
+# A continuación cagamos la probabilidad de vivir hasta n añs (producto de las probabilidades de no morir
+# los años anteriores)
+def VivirHasta(r):
+    P=1
+    #r.name[0], recupera la edad del indice. fila.name, devuelve el índice, en este cqaso un vector
+    # con la edad seguido del sexo. r.name[1] devuelve el segundo indice, el Sexo
+    for x in range(0,r.name[0],1):
+        P=P*(1-Poblacion2019.loc[x,r.name[1]].PM)
+    return P
+Poblacion2019.insert(loc=0,value=Poblacion2019.apply(VivirHasta,axis='columns'), column='PV')
+print("Se ha creado la tabla Poblacion2019.loc[edad,sexo]")
+print("Ejemplo Poblacion2019[53,'Hombres'] =\n", Poblacion2019.loc[53,'Hombres'])
+Se ha creado la tabla Poblacion2019.loc[edad,sexo]
+Ejemplo Poblacion2019[53,'Hombres'] =
+ PV                 0.962536
+PM                 0.003761
+FALLECIDOS      1355.000000
+Total         360296.000000
+Name: (53, Hombres), dtype: float64
+Ya tenemos la Tabla Poblacion2019 con:
+
+PVI(edad,sexo). Probabilidad de vivir hasta edad para los individuos del sexo
+PM(edad,sexo). Probabilidad de morirel año que se cumple edad para los individuos del sexo indicado
+FALLECIDOS(edad, sexo). número de fallecidos en 2019 de individuos de esa edad y sexo
+Total(edad,sexo). Número de personas en 2019 de esa edad y sexo Con estos elementos ya sólo queda definir la función para el cálculo de la esperanza de vida para un individuo de una determinada edad y sexo. La esperanza de vida al nacer, corresponde a EV(0,sexo).
+Esperanza de vida
+EV(edad,sexo)=∑i=edadmax(edad)(i−edad).PV(i,sexo)PV(edad,sexo)
+def EsperanzaVida (Edad,Sexo,Tabla):
+    #La esperanza de vida es la Edad alcanzada + la media de años de vida restantes
+    Esperanza=0
+    for x in range(Edad,101,1):
+       Esperanza=Esperanza+(Tabla.loc[x,Sexo].name[0]-Edad) * Tabla.loc[x,Sexo].PM*Tabla.loc[x,Sexo].PV
+    return (Esperanza /Tabla.loc[Edad,Sexo].PV )
+Ejemplos
+#Esperanza de vida al nacer en España hombres y mujeres
+print("Esperanza de vida al nacer para hombres en España en 2019",EsperanzaVida(0,'Hombres',Poblacion2019))
+print("Esperanza de vida al nacer para mujeres en España en 2019",EsperanzaVida(0,'Mujeres',Poblacion2019))
+print("Esperanza de vida para hombres de 65 años en España en 2019",EsperanzaVida(65,'Hombres',Poblacion2019))
+print("Esperanza de vida para mujeres de 65 años en España en 2019",EsperanzaVida(65,'Mujeres',Poblacion2019))
+Esperanza de vida al nacer para hombres en España en 2019 79.77572180099459
+Esperanza de vida al nacer para mujeres en España en 2019 84.15873800066913
+Esperanza de vida para hombres de 65 años en España en 2019 18.611902572818547
+Esperanza de vida para mujeres de 65 años en España en 2019 22.197382509186323
+Los datos difieren ligeramente de los publicados por el INE (esperanza vida INE). Como posibles causas:
+Hemos utilizado datos del censo por edades agrupando a las personas de 100 o más años. Esta hace que la esperanza de vida que estamos calculando sea inferior a la real, ya que las personas que viven más de cien años se considera que sólo viven 100 años.
+La distribucción de probabilidad de la variable aleatoria Edad de fallecimiento, se ha estimado a partir de las tasas de mortalidad, Para los de más de 100 años, se ha considerado la tasa de mortandad de los de 100.
+Hemos utilizado los datos de censo a 1 de enero de 2020, quizá lo correcto sería utilizar los del censo a 1 de enero de 2019
+Vamos enmendar los dos primeros puntos mediante una aproximación:
+
+En lugar de 100 años como media de la edad de fallecimiento de los que mueren con más de cien años, vamos a poner la media de edad de fallecimiento de este calculada con los datos d fallecimientos de 2019.
+Para la clase de los que mueren con 100 o más años la PM se ha calculado para la edad de 100 años. Vamos a considerar que la PM (100,sexo)= 1.
+#Enmienda 1,edad de los que fallecen con 100 o más años
+EdadMuerte={'Hombres': Defunciones2019[(Defunciones2019.EDAD >=100) & (Defunciones2019.SEXO=='Hombres')].EDAD.mean(),
+           'Mujeres': Defunciones2019[(Defunciones2019.EDAD >=100) & (Defunciones2019.SEXO=='Mujeres')].EDAD.mean()}
+# Enmienda 2, PM para ese más de cien años =1. Ver nueva definición de Esperanza de vida
+
+#
+def EsperanzaVida2 (Edad,Sexo,Tabla):
+    #La esperanza de vida es la Edad alcanzada + la media de años de vida restantes
+    Esperanza=0
+    for x in range(Edad,100,1):
+       Esperanza=Esperanza+(Tabla.loc[x,Sexo].name[0]-Edad) * Tabla.loc[x,Sexo].PM*Tabla.loc[x,Sexo].PV
+    Esperanza=Esperanza+(EdadMuerte[Sexo]-Edad) * 1 *Tabla.loc[100,Sexo].PV
+    return (Esperanza /Tabla.loc[Edad,Sexo].PV )
+print(EdadMuerte)
+{'Hombres': 101.42171518489378, 'Mujeres': 101.74144927536231}
+#Esperanza de vida al nacer en España hombres y mujeres
+print("Esperanza de vida al nacer para hombres en España en 2019",EsperanzaVida2(0,'Hombres',Poblacion2019))
+print("Esperanza de vida al nacer para mujeres en España en 2019",EsperanzaVida2(0,'Mujeres',Poblacion2019))
+print("Esperanza de vida para hombres de 65 años en España en 2019",EsperanzaVida2(65,'Hombres',Poblacion2019))
+print("Esperanza de vida para mujeres de 65 años en España en 2019",EsperanzaVida2(65,'Mujeres',Poblacion2019))
+Esperanza de vida al nacer para hombres en España en 2019 80.21236002340484
+Esperanza de vida al nacer para mujeres en España en 2019 85.65688259003986
+Esperanza de vida para hombres de 65 años en España en 2019 18.79376442655603
+Esperanza de vida para mujeres de 65 años en España en 2019 22.789230311269066
+def SumaP(Edad,Sexo,Tabla):
+    P=0
+    for x in range(Edad,100,1):
+       P=P+Tabla.loc[x,Sexo].PM*Tabla.loc[x,Sexo].PV
+    return (P + Tabla.loc[100,Sexo].PV)/Tabla.loc[Edad,Sexo].PV
+
+def EsperanzaVida3 (Edad,Sexo,Tabla):
+    #La esperanza de vida es la Edad alcanzada + la media de años de vida restantes
+    Esperanza=0
+    for x in range(Edad,100,1):
+       Esperanza=Esperanza+(Tabla.loc[x,Sexo].name[0]-Edad) * Tabla.loc[x,Sexo].PM*Tabla.loc[x,Sexo].PV
+    Esperanza=Esperanza+(EdadMuerte[Sexo]-Edad) * 1 *Tabla.loc[100,Sexo].PV
+    return (Esperanza /Tabla.loc[Edad,Sexo].PV )/SumaP(Edad,Sexo,Tabla)
+
+#Esperanza de vida al nacer en España hombres y mujeres
+print("Esperanza de vida al nacer para hombres en España en 2019",EsperanzaVida3(0,'Hombres',Poblacion2019))
+print("Esperanza de vida al nacer para mujeres en España en 2019",EsperanzaVida3(0,'Mujeres',Poblacion2019))
+print("Esperanza de vida para hombres de 65 años en España en 2019",EsperanzaVida3(65,'Hombres',Poblacion2019))
+print("Esperanza de vida para mujeres de 65 años en España en 2019",EsperanzaVida3(65,'Mujeres',Poblacion2019))
+Esperanza de vida al nacer para hombres en España en 2019 80.21236002340484
+Esperanza de vida al nacer para mujeres en España en 2019 85.6568825900399
+Esperanza de vida para hombres de 65 años en España en 2019 18.793764426556027
+Esperanza de vida para mujeres de 65 años en España en 2019 22.789230311269066
+Ahora la diferencia es aproximadamente de 0,5. Es probable que el INE esté considerando como Edad de fallecimiento para cada tramo de edad la media aritmética. Así, la edad 0, correspondería al tramo de 0 a 1 año, y se tomaría 0,5 años, la edad 54, de 54 a 55 y se tormaría 54,5 años. Con este último ajuste queda.
+
+def EsperanzaVida4 (Edad,Sexo,Tabla):
+    #La esperanza de vida es la Edad alcanzada + la media de años de vida restantes
+    Esperanza=0
+    for x in range(Edad,100,1):
+       Esperanza=Esperanza+(Tabla.loc[x,Sexo].name[0]-Edad +0.5) * Tabla.loc[x,Sexo].PM*Tabla.loc[x,Sexo].PV
+    Esperanza=Esperanza+(EdadMuerte[Sexo]-Edad +0.5) * 1 *Tabla.loc[100,Sexo].PV
+    return (Esperanza /Tabla.loc[Edad,Sexo].PV )/SumaP(Edad,Sexo,Tabla)
+
+#Esperanza de vida al nacer en España hombres y mujeres
+print("Esperanza de vida al nacer para hombres en España en 2019",EsperanzaVida4(0,'Hombres',Poblacion2019))
+print("Esperanza de vida al nacer para mujeres en España en 2019",EsperanzaVida4(0,'Mujeres',Poblacion2019))
+print("Esperanza de vida para hombres de 65 años en España en 2019",EsperanzaVida4(65,'Hombres',Poblacion2019))
+print("Esperanza de vida para mujeres de 65 años en España en 2019",EsperanzaVida4(65,'Mujeres',Poblacion2019))
+Esperanza de vida al nacer para hombres en España en 2019 80.71236002340486
+Esperanza de vida al nacer para mujeres en España en 2019 86.15688259003993
+Esperanza de vida para hombres de 65 años en España en 2019 19.293764426556027
+Esperanza de vida para mujeres de 65 años en España en 2019 23.289230311269066
+Con estos dos ajustes sigue habiendo bastante discrepancia con los datos publicados. Voy a forzar a que la suma de las probabilidades sea la unidad. 
+Nota, no creo que sea correcto este ajuste, pero lo cierto es que así se consigue que las cifras sean similares a las del INE.
+ ¿Por qué pienso que no es correcto? Pensemos una persona que nacío en 1950 y muere en 2000. Si el mes de nacimiento fue enero y murio en diciembre,
+ la edad de fallecimiento es aproximadamente de 51 años, pero si nacio en diciembre y murio en enero,
+ la edad de fallecimiento es de aproximadamente 49 años. Por tanto, la edad al fallecer de los nacidos en 1950 que fallecieron en 2000, 
+estará en el rango (49,51) , siendo el valor central 50.
+
+
+
+
+
+Preliminares
+A partir de los microdatos de defunciones en 2019 defunciones ( ) y los datos de población publicados por el Instituto Nacional de Estadística de España, vamos a obtener la tabla con las tasas de fallecimiento PM (edad,sexo) y vamos a estimar la distribución de probabilidad de vivir hasta cada edad al nacer PV(edad,sexo). Para ello, se tiene en cuenta que vivir hasta la edad es equivalente a sobrevivir a las edades i=1,..,n−1
+ y norir a la edad n. Por tanto:
+PV(edad,sexo)=PM(edad,sexo).∏i=0edad−1(1−PM(i,sexo)
+A partir de la distribución PV(edad,sexo), calcularemos la esperanza de vida al nacer, EVN(sexo), como:
+EVN(sexo)=∑i=0max(edad)edadi.PV(i,sexo)
+De forma análoga, si lo que deseamos es obtener la esperanza de vida a una determinada edad,EV(edad,sexo) por ejemplo a los 65 años, EV (65,sexo):
+EV(edad,sexo)=∑i=edadmax(edad)(i−edad).PV(i,sexo)PV(edad,sexo)
+Observar que PV(i,sexo)PV(edad,sexo
+ para i>=edad
+ es la probabilidad de vivir i años cuando condicionada a haber vivido edad de años.
+
+Establecimiento del entorno
+En primer lugar establecemos el entorno de ejecución para el cálculo, con los ficheros con los datos de defunciones de 2019 y los datos de población a 1 de enero de 2020, fecha de cierre del periodo considerado.
+
+# This Python 3 environment comes with many helpful analytics libraries installed
+# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python
+# For example, here's several helpful packages to load
+
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+
+# Input data files are available in the read-only "../input/" directory
+# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
+
+import os
+for dirname, _, filenames in os.walk('/kaggle/input'):
+    for filename in filenames:
+        print(os.path.join(dirname, filename))
+
+# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using "Save & Run All" 
+# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session
+/kaggle/input/defuncionesine/DEFUNsincm.ANONIMI.A2018.ESTPR.txt
+/kaggle/input/defuncionesine/DEFUN.ANONIMIsin causa.A2019.txt
+/kaggle/input/censo-poblacion-espaa-a-1-de-enero-2020/PoblacionEnero2020SexoEdad.csv
+A continuación cargamos los microdatos de defunciones de 2019 y agrupamos por edad y sexo .
+Fallecidos2019(edad,sexo)
+#Cargamos los microdatos de defunciones que están en formato texto con campos de longitud fija
+#Establecemos la anchura de cada campo y los nombres y leemos el fichero
+anchos=[2, 3, 2, 4, 1, 2, 4, 1, 3, 1, 2, 3, 3, 1, 2, 3, 3, 1, 2, 3, 2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 16]
+encabezado=['CPROI' ,'CMUNI' ,'MESN' ,'ANON' ,'SEXO' ,'MESDEF' ,'ANODEF' ,'NACIONALIDAD' ,'PAISNAC' ,'LUGNAC' ,'CPRON' ,'CMUNN' ,'PAISNX' ,'LUGRES' ,'CPRORE' ,'CMUNRE' ,'PAISREX' ,'ECIV' ,'CAUTO' ,'AÑOSC' ,'MESESC' ,'DIASC' ,'TAMAMUNI' ,'TAMAMUNINAC' ,'TAMAMUNIRES' ,'TAMAPAIS NACIMI' ,'TAMAPAIS RESIDE' ,'TAMAPAIS NACIONA' ,'CBAS1' ,'CBAS23' ,'CBAS4' ,'CAUSAR' ,'CAUSAP' ,'CAUSAINF' ,'NESTUDIOS' ,'LUGARDEF' ,'RELA' ,'BLANCO']
+Defunciones2019=pd.read_fwf('/kaggle/input/defuncionesine/DEFUN.ANONIMIsin causa.A2019.txt',widths=anchos)
+Defunciones2019.columns=encabezado
+#Ahora calculamos la Edad
+def EdadM(r):
+    return int(r.ANODEF-r.ANON)
+Defunciones2019.insert(loc=0,value=Defunciones2019.apply(EdadM, axis='columns'),column='EDAD')
+
+#Decodificamos el SEXO
+def DecodificaSexo(x):
+    if x == 1:
+        return 'Hombres'
+    if x== 6:
+        return 'Mujeres'
+
+SexoT=Defunciones2019.SEXO.map(DecodificaSexo)
+Defunciones2019.SEXO=SexoT
+# Vamos a agrupar por SEXO y EDAD, para obtener la cuenta de fallecidos por año de nacimiento y sexo. 
+# Al dividir por la pboblación, nos dará la frecuencia (probabilidad) de fallecimiento para los nacieos ese año y sexo.
+# Hay que contar por algún campo , elegimos MESN ya que debe figurar para todos los registros
+Fallecidos2019=Defunciones2019.groupby(['EDAD', 'SEXO'])['MESN'].count()
+print("Se ha creado la tabla Fallecidos2019(EDAD,SEXO)")
+print("Ejemplo Fallecidos2019[45,'Mujeres'] =" ,Fallecidos2019[45,'Mujeres'])
+Se ha creado la tabla Fallecidos2019(EDAD,SEXO)
+Ejemplo Fallecidos2019[45,'Mujeres'] = 331
+Ahora cargamos los datos de población
+
+#Los datos de población los vamos a obtener del INE a fecha de 1 de enero de 2020 https://www.ine.es/jaxiT3/Tabla.htm?t=31304
+#Es discutiblde si es correcto tomar los datos a fecha de 1 d enero de 2020 o debe ser a 1 de enero de 2019
+#Los datos se han depudardo con NotePad++ para pasar a utf8. 100 años, se refiere a 100 o más años. 
+Poblacion2019Original=pd.read_csv('/kaggle/input/censo-poblacion-espaa-a-1-de-enero-2020/PoblacionEnero2020SexoEdad.csv', sep=';')
+#Quitamos las columnas que no utilizamos.
+Poblacion2019Original.pop('Provincias')
+Poblacion2019Original.pop('Periodo')
+#Insertamos una columna Fallecidos inicializada a 0, luego la cargamos con los datos de Fallecidos2019
+Poblacion2019Original.insert(loc=0,value=Poblacion2019Original.Edad.map(lambda x: 0), column='FALLECIDOS')
+Poblacion2019=Poblacion2019Original.set_index(['Edad', 'Sexo'],)
+#cargamos los datos de fallecidos
+for x in range (0,100,1):
+    Poblacion2019.loc[x,'Hombres'].FALLECIDOS=Fallecidos2019.loc[x,'Hombres']
+    Poblacion2019.loc[x,'Mujeres'].FALLECIDOS=Fallecidos2019.loc[x,'Mujeres']
+# Ahora ponemos los datos de fallecios de 100 o más años
+Poblacion2019.loc[100,'Hombres'].FALLECIDOS=Fallecidos2019.loc[100:200,'Hombres'].sum()
+Poblacion2019.loc[100,'Mujeres'].FALLECIDOS=Fallecidos2019.loc[100:200,'Mujeres'].sum()
+
+# Ahora cargamos las tasas de fallecimoento para cada sexo y edad
+def ProbM(r):
+    return r.FALLECIDOS /r.Total
+
+Poblacion2019.insert(loc=0,value=Poblacion2019.apply(ProbM,axis='columns'), column='PM')
+# A continuación cagamos la probabilidad de vivir hasta n añs (producto de las probabilidades de no morir
+# los años anteriores)
+def VivirHasta(r):
+    P=1
+    #r.name[0], recupera la edad del indice. fila.name, devuelve el índice, en este cqaso un vector
+    # con la edad seguido del sexo. r.name[1] devuelve el segundo indice, el Sexo
+    for x in range(0,r.name[0],1):
+        P=P*(1-Poblacion2019.loc[x,r.name[1]].PM)
+    return P
+Poblacion2019.insert(loc=0,value=Poblacion2019.apply(VivirHasta,axis='columns'), column='PV')
+print("Se ha creado la tabla Poblacion2019.loc[edad,sexo]")
+print("Ejemplo Poblacion2019[53,'Hombres'] =\n", Poblacion2019.loc[53,'Hombres'])
+Se ha creado la tabla Poblacion2019.loc[edad,sexo]
+Ejemplo Poblacion2019[53,'Hombres'] =
+ PV                 0.962536
+PM                 0.003761
+FALLECIDOS      1355.000000
+Total         360296.000000
+Name: (53, Hombres), dtype: float64
+Ya tenemos la Tabla Poblacion2019 con:
+
+PVI(edad,sexo). Probabilidad de vivir hasta edad para los individuos del sexo
+PM(edad,sexo). Probabilidad de morirel año que se cumple edad para los individuos del sexo indicado
+FALLECIDOS(edad, sexo). número de fallecidos en 2019 de individuos de esa edad y sexo
+Total(edad,sexo). Número de personas en 2019 de esa edad y sexo Con estos elementos ya sólo queda definir la función para el cálculo de la esperanza de vida para un individuo de una determinada edad y sexo. La esperanza de vida al nacer, corresponde a EV(0,sexo).
+Esperanza de vida
+EV(edad,sexo)=∑i=edadmax(edad)(i−edad).PV(i,sexo)PV(edad,sexo)
+def EsperanzaVida (Edad,Sexo,Tabla):
+    #La esperanza de vida es la Edad alcanzada + la media de años de vida restantes
+    Esperanza=0
+    for x in range(Edad,101,1):
+       Esperanza=Esperanza+(Tabla.loc[x,Sexo].name[0]+0.5-Edad) * Tabla.loc[x,Sexo].PM*Tabla.loc[x,Sexo].PV
+    return (Esperanza /Tabla.loc[Edad,Sexo].PV )
+Ejemplos
+#Esperanza de vida al nacer en España hombres y mujeres
+print("Esperanza de vida al nacer para hombres en España en 2019",EsperanzaVida(0,'Hombres',Poblacion2019))
+print("Esperanza de vida al nacer para mujeres en España en 2019",EsperanzaVida(0,'Mujeres',Poblacion2019))
+print("Esperanza de vida para hombres de 65 años en España en 2019",EsperanzaVida(65,'Hombres',Poblacion2019))
+print("Esperanza de vida para mujeres de 65 años en España en 2019",EsperanzaVida(65,'Mujeres',Poblacion2019))
+Esperanza de vida al nacer para hombres en España en 2019 80.27360367744127
+Esperanza de vida al nacer para mujeres en España en 2019 84.65150380342394
+Esperanza de vida para hombres de 65 años en España en 2019 19.10951417552331
+Esperanza de vida para mujeres de 65 años en España en 2019 22.689705349746355
+Los datos difieren ligeramente de los publicados por el INE (esperanza vida INE). Como posibles causas:
+Hemos utilizado datos del censo por edades agrupando a las personas de 100 o más años. Esta hace que la esperanza de vida que estamos calculando sea inferior a la real, ya que las personas que viven más de cien años se considera que sólo viven 100,5 años.
+La distribucción de probabilidad de la variable aleatoria Edad de fallecimiento, se ha estimado a partir de las tasas de mortalidad, Para los de más de 100 años, se ha considerado la tasa de mortandad de los de 100.
+Hemos utilizado los datos de censo a 1 de enero de 2020, quizá lo correcto sería utilizar los del censo a 1 de enero de 2019
+Vamos enmendar los dos primeros puntos mediante una aproximación:
+
+En lugar de 100,5 años como media de la edad de fallecimiento de los que mueren con más de cien años, vamos a poner la media de edad de fallecimiento de este calculada con los datos d fallecimientos de 2019.
+Para la clase de los que mueren con 100 o más años la PM se ha calculado para la edad de 100 años. Vamos a considerar que la PM (100,sexo)= 1.
+#Enmienda 1,edad de los que fallecen con 100 o más años
+EdadMuerteMas100['Hombres']=Defunciones2019[Defunciones2019.EDAD >=100 & Defunciones2019.SEXO=='Hombres'].EDAD.mean()
+EdadMuerteMas100['Mujeres']=Defunciones2019[Defunciones2019.EDAD >=100 & Defunciones2019.SEXO=='Mujeres'].EDAD.mean()
+# Enmienda 2, PM para ese más de cien años =1. Ver nueva definición de Esperanza de vida
+
+#
+def EsperanzaVida2 (Edad,Sexo,Tabla):
+    #La esperanza de vida es la Edad alcanzada + la media de años de vida restantes
+    Esperanza=0
+    for x in range(Edad,100,1):
+       Esperanza=Esperanza+(Tabla.loc[x,Sexo].name[0]+0.5-Edad) * Tabla.loc[x,Sexo].PM*Tabla.loc[x,Sexo].PV
+    Esperanza=Esperanza+(EdadMuerteMas100[Sexo]-Edad) * 1 *Tabla.loc[x,Sexo].PV
+    return (Esperanza /Tabla.loc[Edad,Sexo].PV )
+
+
+
+
+
+
+Preliminares
+A partir de los microdatos de defunciones en 2019 defunciones ( ) y los datos de población publicados por el Instituto Nacional de Estadística de España, vamos a obtener la tabla con las tasas de fallecimiento PM (edad,sexo) y vamos a estimar la distribución de probabilidad de vivir hasta cada edad al nacer PV(edad,sexo). Para ello, se tiene en cuenta que vivir hasta la edad es equivalente a sobrevivir a las edades  i=1,..,n−1
+  y norir a la edad n. Por tanto:
+PV(edad,sexo)=PM(edad,sexo).∏i=0edad−1(1−PM(i,sexo)
+ 
+A partir de la distribución PV(edad,sexo), calcularemos la esperanza de vida al nacer, EVN(sexo), como:
+EVN(sexo)=∑i=0max(edad)edadi.PV(i,sexo)
+ 
+De forma análoga, si lo que deseamos es obtener la esperanza de vida a una determinada edad,EV(edad,sexo) por ejemplo a los 65 años, EV (65,sexo):
+EV(edad,sexo)=∑i=edadmax(edad)(i−edad).PV(i,sexo)PV(edad,sexo)
+ 
+Observar que  PV(i,sexo)PV(edad,sexo
+  para  i>=edad
+  es la probabilidad de vivir i años cuando condicionada a haber vivido edad de años.
+
+Establecimiento del entorno
+En primer lugar establecemos el entorno de ejecución para el cálculo, con los ficheros con los datos de defunciones de 2019 y los datos de población a 1 de enero de 2020, fecha de cierre del periodo considerado.
+
+# This Python 3 environment comes with many helpful analytics libraries installed
+# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python
+# For example, here's several helpful packages to load
+
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+
+# Input data files are available in the read-only "../input/" directory
+# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
+
+import os
+for dirname, _, filenames in os.walk('/kaggle/input'):
+    for filename in filenames:
+        print(os.path.join(dirname, filename))
+
+# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using "Save & Run All" 
+# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session
+/kaggle/input/defuncionesine/DEFUNsincm.ANONIMI.A2018.ESTPR.txt
+/kaggle/input/defuncionesine/DEFUN.ANONIMIsin causa.A2019.txt
+/kaggle/input/censo-poblacion-espaa-a-1-de-enero-2020/PoblacionEnero2020SexoEdad.csv
+A continuación cargamos los microdatos de defunciones de 2019 y agrupamos por edad y sexo .
+Fallecidos2019(edad,sexo)
+#Cargamos los microdatos de defunciones que están en formato texto con campos de longitud fija
+#Establecemos la anchura de cada campo y los nombres y leemos el fichero
+anchos=[2, 3, 2, 4, 1, 2, 4, 1, 3, 1, 2, 3, 3, 1, 2, 3, 3, 1, 2, 3, 2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 16]
+encabezado=['CPROI' ,'CMUNI' ,'MESN' ,'ANON' ,'SEXO' ,'MESDEF' ,'ANODEF' ,'NACIONALIDAD' ,'PAISNAC' ,'LUGNAC' ,'CPRON' ,'CMUNN' ,'PAISNX' ,'LUGRES' ,'CPRORE' ,'CMUNRE' ,'PAISREX' ,'ECIV' ,'CAUTO' ,'AÑOSC' ,'MESESC' ,'DIASC' ,'TAMAMUNI' ,'TAMAMUNINAC' ,'TAMAMUNIRES' ,'TAMAPAIS NACIMI' ,'TAMAPAIS RESIDE' ,'TAMAPAIS NACIONA' ,'CBAS1' ,'CBAS23' ,'CBAS4' ,'CAUSAR' ,'CAUSAP' ,'CAUSAINF' ,'NESTUDIOS' ,'LUGARDEF' ,'RELA' ,'BLANCO']
+Defunciones2019=pd.read_fwf('/kaggle/input/defuncionesine/DEFUN.ANONIMIsin causa.A2019.txt',widths=anchos)
+Defunciones2019.columns=encabezado
+#Ahora calculamos la Edad
+def EdadM(r):
+    return int(r.ANODEF-r.ANON)
+Defunciones2019.insert(loc=0,value=Defunciones2019.apply(EdadM, axis='columns'),column='EDAD')
+
+#Decodificamos el SEXO
+def DecodificaSexo(x):
+    if x == 1:
+        return 'Hombres'
+    if x== 6:
+        return 'Mujeres'
+
+SexoT=Defunciones2019.SEXO.map(DecodificaSexo)
+Defunciones2019.SEXO=SexoT
+# Vamos a agrupar por SEXO y EDAD, para obtener la cuenta de fallecidos por año de nacimiento y sexo. 
+# Al dividir por la pboblación, nos dará la frecuencia (probabilidad) de fallecimiento para los nacieos ese año y sexo.
+# Hay que contar por algún campo , elegimos MESN ya que debe figurar para todos los registros
+Fallecidos2019=Defunciones2019.groupby(['EDAD', 'SEXO'])['MESN'].count()
+print("Se ha creado la tabla Fallecidos2019(EDAD,SEXO)")
+print("Ejemplo Fallecidos2019[45,'Mujeres'] =" ,Fallecidos2019[45,'Mujeres'])
+Se ha creado la tabla Fallecidos2019(EDAD,SEXO)
+Ejemplo Fallecidos2019[45,'Mujeres'] = 331
+Ahora cargamos los datos de población
+
+#Los datos de población los vamos a obtener del INE a fecha de 1 de enero de 2020 https://www.ine.es/jaxiT3/Tabla.htm?t=31304
+#Es discutiblde si es correcto tomar los datos a fecha de 1 d enero de 2020 o debe ser a 1 de enero de 2019
+#Los datos se han depudardo con NotePad++ para pasar a utf8. 100 años, se refiere a 100 o más años. 
+Poblacion2019Original=pd.read_csv('/kaggle/input/censo-poblacion-espaa-a-1-de-enero-2020/PoblacionEnero2020SexoEdad.csv', sep=';')
+#Quitamos las columnas que no utilizamos.
+Poblacion2019Original.pop('Provincias')
+Poblacion2019Original.pop('Periodo')
+#Insertamos una columna Fallecidos inicializada a 0, luego la cargamos con los datos de Fallecidos2019
+Poblacion2019Original.insert(loc=0,value=Poblacion2019Original.Edad.map(lambda x: 0), column='FALLECIDOS')
+Poblacion2019=Poblacion2019Original.set_index(['Edad', 'Sexo'],)
+#cargamos los datos de fallecidos
+for x in range (0,100,1):
+    Poblacion2019.loc[x,'Hombres'].FALLECIDOS=Fallecidos2019.loc[x,'Hombres']
+    Poblacion2019.loc[x,'Mujeres'].FALLECIDOS=Fallecidos2019.loc[x,'Mujeres']
+# Ahora ponemos los datos de fallecios de 100 o más años
+Poblacion2019.loc[100,'Hombres'].FALLECIDOS=Fallecidos2019.loc[100:200,'Hombres'].sum()
+Poblacion2019.loc[100,'Mujeres'].FALLECIDOS=Fallecidos2019.loc[100:200,'Mujeres'].sum()
+
+# Ahora cargamos las tasas de fallecimoento para cada sexo y edad
+def ProbM(r):
+    return r.FALLECIDOS /r.Total
+
+Poblacion2019.insert(loc=0,value=Poblacion2019.apply(ProbM,axis='columns'), column='PM')
+# A continuación cagamos la probabilidad de vivir hasta n añs (producto de las probabilidades de no morir
+# los años anteriores)
+def VivirHasta(r):
+    P=1
+    #r.name[0], recupera la edad del indice. fila.name, devuelve el índice, en este cqaso un vector
+    # con la edad seguido del sexo. r.name[1] devuelve el segundo indice, el Sexo
+    for x in range(0,r.name[0],1):
+        P=P*(1-Poblacion2019.loc[x,r.name[1]].PM)
+    return P
+Poblacion2019.insert(loc=0,value=Poblacion2019.apply(VivirHasta,axis='columns'), column='PV')
+print("Se ha creado la tabla Poblacion2019.loc[edad,sexo]")
+print("Ejemplo Poblacion2019[53,'Hombres'] =\n", Poblacion2019.loc[53,'Hombres'])
+Se ha creado la tabla Poblacion2019.loc[edad,sexo]
+Ejemplo Poblacion2019[53,'Hombres'] =
+ PV                 0.962536
+PM                 0.003761
+FALLECIDOS      1355.000000
+Total         360296.000000
+Name: (53, Hombres), dtype: float64
+Ya tenemos la Tabla Poblacion2019 con:
+
+PVI(edad,sexo). Probabilidad de vivir hasta edad para los individuos del sexo
+PM(edad,sexo). Probabilidad de morirel año que se cumple edad para los individuos del sexo indicado
+FALLECIDOS(edad, sexo). número de fallecidos en 2019 de individuos de esa edad y sexo
+Total(edad,sexo). Número de personas en 2019 de esa edad y sexo Con estos elementos ya sólo queda definir la función para el cálculo de la esperanza de vida para un individuo de una determinada edad y sexo. La esperanza de vida al nacer, corresponde a EV(0,sexo).
+Esperanza de vida
+EV(edad,sexo)=∑i=edadmax(edad)(i−edad).PV(i,sexo)PV(edad,sexo)
+def EsperanzaVida (Edad,Sexo,Tabla):
+    #La esperanza de vida es la Edad alcanzada + la media de años de vida restantes
+    Esperanza=0
+    for x in range(Edad,101,1):
+       Esperanza=Esperanza+(Tabla.loc[x,Sexo].name[0]+0.5-Edad) * Tabla.loc[x,Sexo].PM*Tabla.loc[x,Sexo].PV
+    return (Esperanza /Tabla.loc[Edad,Sexo].PV )
+Ejemplos
+#Esperanza de vida al nacer en España hombres y mujeres
+print("Esperanza de vida al nacer para hombres en España en 2019",EsperanzaVida(0,'Hombres',Poblacion2019))
+print("Esperanza de vida al nacer para mujeres en España en 2019",EsperanzaVida(0,'Mujeres',Poblacion2019))
+print("Esperanza de vida para hombres de 65 años en España en 2019",EsperanzaVida(65,'Hombres',Poblacion2019))
+print("Esperanza de vida para mujeres de 65 años en España en 2019",EsperanzaVida(65,'Mujeres',Poblacion2019))
+Esperanza de vida al nacer para hombres en España en 2019 80.27360367744127
+Esperanza de vida al nacer para mujeres en España en 2019 84.65150380342394
+Esperanza de vida para hombres de 65 años en España en 2019 19.10951417552331
+Esperanza de vida para mujeres de 65 años en España en 2019 22.689705349746355
+Los datos difieren ligeramente de los publicados por el INE (esperanza vida INE). Como posibles causas:
+
+Hemos utilizado datos del censo por edades agrupando a las personas de 100 o más años. Esta hace que la esperanza de vida que estamos
+calculando sea inferior a la real, ya que las personas que viven más de cien años se considera que sólo viven 100.
+La distribucción de probabilidad de la variable aleatoria Edad de fallecimiento, se ha estimado a partir de las tasas de mortalidad.
+Hemos utilizado los datos de censo a 1 de enero de 2020, quizá lo correcto sería utilizar los del censo a 1 de enero de 2019
+
+
+
+https://ec.europa.eu/eurostat/databrowser/bookmark/53a66b3a-aada-48e4-a694-bd786d51c49b?lang=en
+
+
+https://ec.europa.eu/eurostat/databrowser/bookmark/325f1c2a-92a7-466c-b8e9-125eed57eb2f?lang=en
+
+https://datosmacro.expansion.com/demografia/esperanza-vida/espana

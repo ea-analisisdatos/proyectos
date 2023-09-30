@@ -1,0 +1,17 @@
+pip
+jupyter
+numpy
+pandas
+matplotlib
+seaborn
+plotly
+missingno
+scipy
+mysql-connector-python
+sqlalchemy
+ydata-profiling
+fastcluster
+geopy
+folium
+scikit-learn
+imbalanced-learn
