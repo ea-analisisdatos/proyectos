@@ -19,9 +19,9 @@
 
 > En este trabajo, he actuado como apoyo en la parte de organización del proyecto, usando la herramienta de "Trello". Tambien he creado toda la estructura del proyecto dentro del GitHub.
 
-> Para arrancar el proyecto ha sido disponibilizado los CSVs obtenidos en Kaggle, lo cuales he usado para codificar en Python, la carga de los ficheros CSVs. 
+> Para arrancar el proyecto ha sido disponibilizado los CSVs obtenidos en Kaggle, lo cuales he usado para codificar en Python, la carga de los ficheros CSVs.
 
-> He procedindo con la organización y limpieza de los datos y por fin, he generado un CSV que contenía todos los datos ya tratados para que el dueño del proyeto pudiese generar las gráficas y los algorítmos de Machine Learning.
+> He procedido con la organización y limpieza de los datos y por fin, he generado un CSV que contenía todos los datos ya tratados para que el dueño del proyeto pudiese generar las gráficas y los algorítmos de Machine Learning.
 
 > ALUMNOS:
 > - Erika Samara Alvares Angelim (apoyo para el arranque del proyecto)
