@@ -9,6 +9,7 @@
 > - Emma Montalbán Álvaro
 > - Juan Carlos Menéndez Gijón
 > - Francisco Polonio
+> 
 > MENOTRES EXTERNO A LA FUNDACIÓN ADECCO:
 > - David Toribio Gomez (Fintonic)
 > - Concepción R. - (Indra)
@@ -25,6 +26,7 @@
 > ALUMNOS:
 > - Erika Samara Alvares Angelim (apoyo para el arranque del proyecto)
 > - Eduardo Antonio Rodriguez Macassi (responsable del proyecto)
+> 
 > MENOTRES EXTERNO A LA FUNDACIÓN ADECCO:
 > - Enrique Jiménez Ruiz (Indra)
 > - María Silvia Sanchez Hurtado
