@@ -3,6 +3,7 @@
 1. [Calidad del Aire en Madrid (01/01/2019 - 31/05/2023)](https://github.com/ea-analisisdatos/proyectos/tree/556ea5e7180a2252485d0d7baa57b36f16c3248c/prediccion_calidad_aire_madrid/ "Clique/Pulse aquí para acceder al proycto")
 
 > Este trabajo ha sido desarrollado como proyecto final en curso de Análisi de Datos de Fundación Adecco. He participado en la organización de los trabajo en Trello, organizando las reuniones en Google Meet, he creado el grupo en Whatsapp para comunicación interna del equipo. En la parte de codificación con Python he creado el procedimiento de Outiliers y contribuindo en la creación del algoritmo para tratar los valores nulos. He contribuído en la creación del algoritimo de Machine Learning usando la tecnica de Regresión Lineal y en la creación de los informes en PowerBI. Los trabajos eran distribuidos en el grupo y cada participante tambien trabajaba validando la codificación uno de los otros, lo que nos hizo crecer en conocimento y trabajar en equipo favorablemente. Este trabajo estuvo apoyando por mentores que eran porfesionales activos en mercado de trabajo de las TIC en Madrid. El equipo estaba formado por:
+> 
 > ALUMNOS:
 > - Erika Samara Alvares Angelim (yo)
 > - Emma Montalbán Álvaro
